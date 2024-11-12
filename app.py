@@ -1,3 +1,4 @@
+import os
 import streamlit as st 
 import openai
 from gtts import gTTS
@@ -14,7 +15,11 @@ st.set_page_config(
 
 
 from openai import OpenAI
-openai.api_key = st.secrets["OPENAI_API_KEY"]
+if st.secrets["OPENAI_API_KEY"]:
+    print("\nKey found\n")
+
+os.environ["OPENAI_API_KEY"] = st.secrets["OPENAI_API_KEY"]
+# openai.api_key = st.secrets["OPENAI_API_KEY"]
 client = OpenAI()
 
 def translate_text(text, target_lang):
