@@ -14,6 +14,7 @@ st.set_page_config(
 
 
 from openai import OpenAI
+openai.api_key = st.secrets["OPENAI_API_KEY"]
 client = OpenAI()
 
 def translate_text(text, target_lang):
@@ -90,7 +91,7 @@ def main():
                 model="whisper-1", 
                 file=audio_file
             )
-            
+
             # transcript = openai.Audio.transcribe("whisper-1", audio_file)
             
             # Display original text
