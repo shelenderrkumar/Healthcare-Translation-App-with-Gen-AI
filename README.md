@@ -1,4 +1,4 @@
-# Real-Time Translator
+# Healthcare Translation Web App with Generative AI
 
 A web app to translate speech in real time using the Whisper API for transcribing and translating recorded audio, and Google Text-to-Speech (gTTS) to play out the translation.
 
