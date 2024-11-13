@@ -14,6 +14,13 @@ A web app to translate speech in real time using the Whisper API for transcribin
 - Translation synthesized as speech by Google text-to-speech module (gTTS).
 
 
+## Documentation
+
+Comprehensive documentation is available in the docs directory:
+
+ - User Guide: `/docs/Code Documentation - Health App.pdf`
+ - Developer Documentation: `/docs/Healthcare App - User Guide.pdf`
+
 ## Demo
 
 
