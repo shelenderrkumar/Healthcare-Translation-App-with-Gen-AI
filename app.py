@@ -3,6 +3,7 @@ import openai
 from gtts import gTTS
 from io import BytesIO
 from audio_recorder_streamlit import audio_recorder
+from openai import OpenAI
 
 st.set_page_config(
     page_title="Real Time Translation",
@@ -26,8 +27,6 @@ st.markdown(
 )
 
 
-from openai import OpenAI
-
 openai.api_key = st.secrets["OPENAI_API_KEY"]
 client = OpenAI()
 
@@ -35,13 +34,15 @@ client = OpenAI()
 def translate_text(text, target_lang):
     """Translate text using OpenAI"""
     try:
+        prompt = f"""
+            You are a highly specialized medical assistant. \
+            Translate the following text to {target_lang}, ensuring accuracy for medical and healthcare terminology: 
+        """
+
         completion = client.chat.completions.create(
             model="gpt-4o-mini",
             messages=[
-                {
-                    "role": "system",
-                    "content": f"Translate the following text to {target_lang}:",
-                },
+                {"role": "system", "content": prompt},
                 {"role": "user", "content": text},
             ],
         )

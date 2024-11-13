@@ -5,6 +5,7 @@ from io import BytesIO
 
 
 from openai import OpenAI
+
 openai.api_key = st.secrets["OPENAI_API_KEY"]
 client = OpenAI()
 
