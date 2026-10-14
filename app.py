@@ -1,145 +1,125 @@
+"""Streamlit UI: a two-way, spoken conversation between a clinician and a patient."""
+
+import os
+
 import streamlit as st
-import openai
-from gtts import gTTS
-from io import BytesIO
-from audio_recorder_streamlit import audio_recorder
-from openai import OpenAI
 
-st.set_page_config(
-    page_title="Real Time Translation",
-    page_icon="🌎",
-    layout="centered",
-    initial_sidebar_state="collapsed",
-)
+from medtranslate.languages import LANGUAGES, get_language
+from medtranslate.pipeline import TranslationPipeline, audio_fingerprint
 
-st.markdown(
-    """
-    <style>
-        .main {background-color: #1f2b38; color: white;}
-        .stTextArea, .stSelectbox, .stButton, .stExpander {background-color: #2d3a4b; color: white;}
-        .stAudio, .stTextArea, .stSelectbox, .stButton {border-radius: 8px;}
-        .stAudio {margin: 10px 0;}
-        .title {font-size: 2em; font-weight: bold; text-align: center; color: #00c7ff;}
-        .subtitle {font-size: 1.2em; text-align: center; color: #b8c7d8;}
-    </style>
-""",
-    unsafe_allow_html=True,
-)
+st.set_page_config(page_title="Medical Interpreter", page_icon="🩺", layout="wide")
+
+ROLES = {"clinician": ("🩺", "Clinician"), "patient": ("🧑", "Patient")}
 
 
-openai.api_key = st.secrets["OPENAI_API_KEY"]
-client = OpenAI()
-
-
-def translate_text(text, target_lang):
-    """Translate text using OpenAI"""
+def api_key() -> str | None:
     try:
-        prompt = f"""
-            You are a highly specialized medical assistant. \
-            Translate the following text to {target_lang}, ensuring accuracy for medical and healthcare terminology: 
-        """
-
-        completion = client.chat.completions.create(
-            model="gpt-4o-mini",
-            messages=[
-                {"role": "system", "content": prompt},
-                {"role": "user", "content": text},
-            ],
-        )
-
-        return completion.choices[0].message.content
-
-    except Exception as e:
-        st.error(f"Translation error: {str(e)}")
-        return None
+        return st.secrets["OPENAI_API_KEY"]
+    except (KeyError, FileNotFoundError, st.errors.StreamlitSecretNotFoundError):
+        return os.getenv("OPENAI_API_KEY")
 
 
-def text_to_speech(text, lang_code):
-    """Convert text to speech"""
-    try:
-        sound_file = BytesIO()
-        tts = gTTS(text=text, lang=lang_code)
-        tts.write_to_fp(sound_file)
-        sound_file.seek(0)
-        return sound_file
-    except Exception as e:
-        st.error(f"Text-to-speech error: {str(e)}")
-        return None
+@st.cache_resource
+def get_pipeline(key: str) -> TranslationPipeline:
+    from openai import OpenAI
+
+    return TranslationPipeline(
+        OpenAI(api_key=key), chat_model=os.getenv("CHAT_MODEL", "gpt-4o-mini")
+    )
+
+
+def process(pipeline, role, other, text=None, audio=None):
+    speaker, listener = st.session_state.lang[role], st.session_state.lang[other]
+    with st.spinner("Translating..."):
+        if audio is not None:
+            text = pipeline.transcribe(audio, speaker)
+        if not text:
+            st.toast("No speech detected. Please try again.")
+            return
+        result = pipeline.run(text, speaker, listener, back_translate=st.session_state.verify)
+        speech = pipeline.speak(result.translation, listener) if st.session_state.speak else None
+    st.session_state.history.append({"role": role, "result": result, "speech": speech})
+
+
+def render_turn(turn):
+    icon, label = ROLES[turn["role"]]
+    result = turn["result"]
+    with st.chat_message(turn["role"], avatar=icon):
+        st.caption(f"{label} · {result.source.name} → {result.target.name}")
+        st.markdown(f"**{result.translation}**")
+        st.markdown(f":gray[{result.source_text}]")
+        for warning in result.warnings:
+            st.warning(warning, icon="⚠️")
+        if result.back_translation:
+            with st.expander(f"Round-trip check (back into {result.source.name})"):
+                st.write(result.back_translation)
+        if turn["speech"]:
+            st.audio(turn["speech"], format="audio/mp3")
+
+
+def speaker_panel(pipeline, role, other):
+    icon, label = ROLES[role]
+    st.subheader(f"{icon} {label} speaks {st.session_state.lang[role].name}")
+    audio = st.audio_input(f"Record the {label.lower()}", key=f"audio_{role}")
+    if audio is not None:
+        data = audio.getvalue()
+        fingerprint = audio_fingerprint(data)
+        if fingerprint not in st.session_state.processed:  # never re-bill on UI re-runs
+            st.session_state.processed.add(fingerprint)
+            process(pipeline, role, other, audio=data)
+    with st.form(f"text_{role}", clear_on_submit=True, border=False):
+        typed = st.text_input("…or type", key=f"typed_{role}", placeholder="Type instead")
+        if st.form_submit_button("Translate") and typed.strip():
+            process(pipeline, role, other, text=typed.strip())
 
 
 def main():
-    st.markdown(
-        '<div class="title">Real Time Translation</div>', unsafe_allow_html=True
-    )
-    st.markdown(
-        '<div class="subtitle">Healthcare Communication Assistant</div>',
-        unsafe_allow_html=True,
-    )
-    st.divider()
+    st.session_state.setdefault("history", [])
+    st.session_state.setdefault("processed", set())
 
-    col1, col2 = st.columns(2)
-    with col1:
-        source_lang = st.selectbox(
-            "Source Language",
-            ["English", "Spanish", "Hindi", "Mandarin", "Arabic", "French"],
-            label_visibility="collapsed",
-        )
-    with col2:
-        target_lang = st.selectbox(
-            "Target Language",
-            ["Spanish", "English", "Hindi", "Mandarin", "Arabic", "French"],
-            label_visibility="collapsed",
+    with st.sidebar:
+        st.header("Settings")
+        names = list(LANGUAGES)
+        clinician = st.selectbox("Clinician language", names, index=names.index("English"))
+        patient = st.selectbox("Patient language", names, index=names.index("Spanish"))
+        st.session_state.lang = {
+            "clinician": get_language(clinician),
+            "patient": get_language(patient),
+        }
+        st.session_state.verify = st.toggle("Round-trip check", value=True)
+        st.session_state.speak = st.toggle("Speak translations aloud", value=True)
+        if st.button("Clear conversation", use_container_width=True):
+            st.session_state.history.clear()
+        st.caption(
+            "Audio and text are sent to OpenAI for processing. Do not use with real patient "
+            "data unless your organisation has an appropriate agreement in place."
         )
 
-    lang_codes = {
-        "English": "en",
-        "Spanish": "es",
-        "Hindi": "hi",
-        "Mandarin": "zh-CN",
-        "Arabic": "ar",
-        "French": "fr",
-    }
+    st.title("🩺 Medical Interpreter")
+    st.info(
+        "Assistive tool, not a certified medical interpreter. Always confirm doses, "
+        "allergies and consent with a qualified interpreter.",
+        icon="ℹ️",
+    )
+
+    key = api_key()
+    if not key:
+        st.error("Set `OPENAI_API_KEY` in `.streamlit/secrets.toml` or the environment.")
+        st.stop()
+    pipeline = get_pipeline(key)
+
+    left, right = st.columns(2)
+    with left:
+        speaker_panel(pipeline, "clinician", "patient")
+    with right:
+        speaker_panel(pipeline, "patient", "clinician")
 
     st.divider()
-
-    st.subheader("Record a Voice Message")
-    audio_input = st.experimental_audio_input("")
-
-    if audio_input:
-        audio_bytes = audio_input.read()
-        st.audio(audio_bytes, format="audio/wav")
-
-        audio_file = BytesIO(audio_bytes)
-        audio_file.name = "voice_message.wav"
-
-        try:
-            transcription = client.audio.transcriptions.create(
-                model="whisper-1", file=audio_file
-            )
-
-            st.text_area(" Original Text:", transcription.text, height=100)
-
-            translated_text = translate_text(transcription.text, target_lang)
-            if translated_text:
-                st.text_area(" Translation:", translated_text, height=100)
-                translated_audio = text_to_speech(
-                    translated_text, lang_codes[target_lang]
-                )
-                if translated_audio:
-                    st.subheader("Translation Audio")
-                    st.audio(translated_audio)
-
-        except Exception as e:
-            st.error(f"Processing error: {str(e)}")
-
-    with st.expander("Text to Speech"):
-        text_input = st.text_area("Enter text:")
-        if st.button("Convert to Speech"):
-            if text_input:
-                audio = text_to_speech(text_input, lang_codes[target_lang])
-                if audio:
-                    st.audio(audio)
+    st.subheader("Conversation")
+    if not st.session_state.history:
+        st.caption("Translations will appear here.")
+    for turn in reversed(st.session_state.history):
+        render_turn(turn)
 
 
-if __name__ == "__main__":
-    main()
+main()
