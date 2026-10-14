@@ -1,0 +1,29 @@
+[project]
+name = "medical-interpreter"
+version = "1.0.0"
+description = "Two-way speech translation for clinician-patient conversations, with dosage and round-trip safety checks."
+readme = "README.md"
+license = { text = "MIT" }
+authors = [{ name = "Shelender Kumar" }]
+requires-python = ">=3.10"
+dependencies = ["streamlit>=1.40", "openai>=1.40", "gTTS>=2.5"]
+
+[project.optional-dependencies]
+dev = ["pytest>=8", "ruff>=0.6"]
+
+[build-system]
+requires = ["setuptools>=68"]
+build-backend = "setuptools.build_meta"
+
+[tool.setuptools.packages.find]
+include = ["medtranslate*"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+
+[tool.ruff]
+line-length = 100
+target-version = "py310"
+
+[tool.ruff.lint]
+select = ["E", "F", "I", "UP", "B", "SIM"]
