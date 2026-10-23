@@ -1,0 +1,9 @@
+cff-version: 1.2.0
+message: "If you use this software, please cite it as below."
+title: "Medical Interpreter: two-way clinician-patient speech translation with dose and number safety checks"
+authors:
+  - family-names: Kumar
+    given-names: Shelender
+repository-code: "https://github.com/shelenderrkumar/Healthcare-Translation-App-with-Gen-AI"
+license: MIT
+type: software
