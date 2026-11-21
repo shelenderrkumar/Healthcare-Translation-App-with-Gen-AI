@@ -6,10 +6,10 @@ readme = "README.md"
 license = { text = "MIT" }
 authors = [{ name = "Shelender Kumar" }]
 requires-python = ">=3.10"
-dependencies = ["streamlit>=1.40", "openai>=1.40", "gTTS>=2.5"]
+dependencies = ["streamlit==1.67.0", "openai==3.57.0", "gTTS==2.5.4"]
 
 [project.optional-dependencies]
-dev = ["pytest>=8", "ruff>=0.6"]
+dev = ["pytest==9.2.0", "ruff==0.17.6"]
 
 [build-system]
 requires = ["setuptools>=68"]
