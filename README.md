@@ -1,7 +1,7 @@
 # Medical Interpreter: Speech Translation for Clinician-Patient Conversations
 
 [![CI](https://github.com/shelenderrkumar/Healthcare-Translation-App-with-Gen-AI/actions/workflows/ci.yml/badge.svg)](https://github.com/shelenderrkumar/Healthcare-Translation-App-with-Gen-AI/actions/workflows/ci.yml)
-![Python](https://img.shields.io/badge/python-3.10%2B-blue)
+![Python](https://img.shields.io/badge/python-3.11%2B-blue)
 ![License](https://img.shields.io/badge/license-MIT-green)
 
 A two-way, spoken interpreter for a clinician and a patient who don't share a language.
